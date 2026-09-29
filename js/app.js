@@ -1,22 +1,21 @@
 const STORAGE_KEY = "films";
-const PLATFORM_LABELS = {
-  netflix: "Netflix",
-  prime: "Prime Video",
-  disney: "Disney+",
-  canal: "Canal+"
-};
 
 const form = document.getElementById("add-movie-form");
+const titleInput = document.getElementById("title");
 const cinemaOnly = document.getElementById("cinema-only");
 const platformsGroup = document.getElementById("platforms-group");
+const submitButton = form.querySelector(".btn-submit");
 
-const message = document.createElement("p");
-message.className = "form-message";
-form.appendChild(message);
+const alert = document.createElement("p");
+alert.hidden = true;
+alert.style.cssText =
+  "padding:10px 12px;border-radius:6px;font-weight:600;margin:0 0 12px;" +
+  "background:#fde8e8;color:#b02020;border:1px solid #f0b4b4";
+form.prepend(alert);
 
-function showMessage(text, isError) {
-  message.textContent = text;
-  message.dataset.state = isError ? "error" : "success";
+function showAlert(text) {
+  alert.textContent = text;
+  alert.hidden = !text;
 }
 
 function getFilms() {
@@ -27,27 +26,57 @@ function getFilms() {
   }
 }
 
-function setPlatformsEnabled(enabled) {
-  platformsGroup.hidden = !enabled;
-  platformsGroup
-    .querySelectorAll('input[name="platforms[]"]')
-    .forEach((input) => (input.checked = enabled ? input.checked : false));
+function alreadyExists(title) {
+  return getFilms().some((film) => film.title === title);
 }
 
-cinemaOnly.addEventListener("change", () => {
-  setPlatformsEnabled(!cinemaOnly.checked);
-  showMessage("", false);
+titleInput.addEventListener("input", () => {
+  titleInput.value = titleInput.value.toLowerCase();
+  checkTitle();
 });
 
-setPlatformsEnabled(!cinemaOnly.checked);
+function checkTitle() {
+  const duplicate = titleInput.value !== "" && alreadyExists(titleInput.value);
+  showAlert(duplicate ? "Titre déjà existant" : "");
+  submitButton.disabled = duplicate;
+}
 
-function buildMovie() {
+function togglePlatforms() {
+  const cinema = cinemaOnly.checked;
+  platformsGroup.hidden = cinema;
+  platformsGroup
+    .querySelectorAll('input[name="platforms[]"]')
+    .forEach((input) => (input.checked = cinema ? false : input.checked));
+}
+
+cinemaOnly.addEventListener("change", togglePlatforms);
+togglePlatforms();
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const title = titleInput.value.trim().toLowerCase();
+  titleInput.value = title;
+  if (title === "") return showAlert("Le titre du film est obligatoire.");
+  if (alreadyExists(title)) return showAlert("Titre déjà existant");
+
+  if (cinemaOnly.checked) {
+    platforms = [];
+  } else {
+    platforms = [...form.querySelectorAll('input[name="platforms[]"]:checked')].map(
+      (input) => input.value
+    );
+    if (platforms.length === 0)
+      return showAlert(
+        "Choisissez au moins une plateforme, ou cochez « Sortie exclusivement en salle »."
+      );
+  }
+
   const data = new FormData(form);
-  const isCinemaOnly = cinemaOnly.checked;
 
-  return {
+  const film = {
     isbn: crypto.randomUUID(),
-    title: data.get("title").trim(),
+    title,
     tags: data.get("genre")
       .split(",")
       .map((tag) => tag.trim())
@@ -56,67 +85,21 @@ function buildMovie() {
     director: data.get("director").trim(),
     rating: data.get("rating") === "" ? null : Number(data.get("rating")),
     synopsis: data.get("synopsis").trim(),
-    actors: data.getAll("actors[]")
+    actors: data
+      .getAll("actors[]")
       .map((actor) => actor.trim())
-      .filter(Boolean)
-      .slice(0, 3),
-    cinema_only: isCinemaOnly,
-    cinema_room: data.get("cinema_room").trim() || null,
-    platforms: isCinemaOnly ? [] : data.getAll("platforms[]")
+      .filter(Boolean),
+    cinema_only: cinemaOnly.checked,
+    cinema_room: data.get("cinema_room").trim(),
+    platforms
   };
-}
-
-function validate(movie) {
-  if (!movie.title) return "Le titre du film est obligatoire.";
-  if (!movie.release_date) return "La date de sortie est obligatoire.";
-  if (!movie.director) return "Le réalisateur est obligatoire.";
-  if (movie.rating !== null && (movie.rating < 0 || movie.rating > 10))
-    return "La note doit être comprise entre 0 et 10.";
-
-  if (!movie.cinema_only && movie.platforms.length === 0)
-    return "Sélectionnez au moins une plateforme de streaming, ou cochez « Sortie exclusivement en salle ».";
 
   const films = getFilms();
-  const sameTitle = films.find(
-    (film) => film.title.toLowerCase() === movie.title.toLowerCase()
-      && film.release_date === movie.release_date
-  );
-  if (sameTitle)
-    return "Un film avec ce titre et cette date de sortie est déjà enregistré.";
-
-  return null;
-}
-
-function describeMovie(movie) {
-  const diffusion = movie.cinema_only
-    ? `Salle uniquement${movie.cinema_room ? ` (${movie.cinema_room})` : ""}`
-    : [
-        movie.cinema_room ? `Salle (${movie.cinema_room})` : null,
-        movie.platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(", ")
-      ]
-        .filter(Boolean)
-        .join(" + ");
-  return diffusion;
-}
-
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-
-  const movie = buildMovie();
-  const error = validate(movie);
-  if (error) {
-    showMessage(error, true);
-    return;
-  }
-
-  const films = getFilms();
-  films.push(movie);
+  films.push(film);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(films));
 
   form.reset();
-  setPlatformsEnabled(true);
-  showMessage(
-    `« ${movie.title} » a été ajouté au catalogue. Diffusion : ${describeMovie(movie)}.`,
-    false
-  );
+  togglePlatforms();
+  showAlert("");
+  submitButton.disabled = false;
 });

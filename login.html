@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="container auth-container">
+    <h1>Connexion</h1>
+
+    <form id="login-form">
+      <fieldset>
+        <legend>Identifiants</legend>
+
+        <div id="login-alert" class="alert" hidden></div>
+
+        <div class="form-group">
+          <label for="login-username">Identifiant</label>
+          <input type="text" id="login-username" name="username" required>
+        </div>
+
+        <div class="form-group">
+          <label for="login-password">Mot de passe</label>
+          <input type="password" id="login-password" name="password" required>
+        </div>
+
+        <button type="submit" class="btn-submit">Se connecter</button>
+      </fieldset>
+    </form>
+
+    <nav class="auth-nav">
+      <a href="register.html">Créer un compte</a>
+      <a href="index.html">Administration</a>
+    </nav>
+  </main>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Créer un compte</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="container auth-container">
+    <h1>Créer un compte</h1>
+
+    <form id="register-form">
+      <fieldset>
+        <legend>Identifiants</legend>
+
+        <div id="register-alert" class="alert" hidden></div>
+
+        <div class="form-group">
+          <label for="register-username">Identifiant</label>
+          <input type="text" id="register-username" name="username" required>
+        </div>
+
+        <div class="form-group">
+          <label for="register-password">Mot de passe</label>
+          <input
+            type="password"
+            id="register-password"
+            name="password"
+            required
+            minlength="8"
+            maxlength="8"
+            pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[^ ]{8}"
+            title="Exactement 8 caractères : 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial."
+          >
+          <ul class="password-rules">
+            <li>Exactement 8 caractères</li>
+            <li>Une majuscule</li>
+            <li>Une minuscule</li>
+            <li>Un chiffre</li>
+            <li>Un caractère spécial</li>
+          </ul>
+        </div>
+
+        <div class="form-group">
+          <label for="register-password2">Confirmer le mot de passe</label>
+          <input type="password" id="register-password2" name="password2" required>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Type de compte</legend>
+        <div class="form-group">
+          <label for="register-role">Profil</label>
+          <select id="register-role" name="role">
+            <option value="client">Client</option>
+            <option value="admin">Administrateur</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn-submit">Créer le compte</button>
+    </form>
+
+    <nav class="auth-nav">
+      <a href="login.html">Se connecter</a>
+      <a href="index.html">Administration</a>
+    </nav>
+  </main>
+</body>
+</html>

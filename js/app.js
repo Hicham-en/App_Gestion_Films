@@ -207,7 +207,7 @@ function deleteFilm(filmId) {
   renderFilmsList();
   return { ok: true, titre: film.title, comptesNettoyes };
 }
-.
+
 function getProfileFor(key) {
   try {
     const p = JSON.parse(localStorage.getItem(key));

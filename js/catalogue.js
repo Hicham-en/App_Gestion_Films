@@ -62,9 +62,16 @@ function updateCatalog() {
   }
 
   if (queryGenre) {
+    const searchTags = queryGenre
+      .split(/[\s,]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     films = films.filter((f) =>
       Array.isArray(f.tags) &&
-      f.tags.some((tag) => tag.toLowerCase().includes(queryGenre))
+      searchTags.every((searchTag) =>
+        f.tags.some((filmTag) => filmTag.toLowerCase().includes(searchTag))
+      )
     );
   }
 
@@ -82,7 +89,6 @@ function updateCatalog() {
     );
   }
 
-  // 6. Tri
   films.sort((a, b) => {
     let valA = a[sortBy];
     let valB = b[sortBy];
@@ -118,6 +124,12 @@ function renderCatalog(films) {
     const card = document.createElement("article");
     card.className = "film-card";
 
+    const body = document.createElement("div");
+    body.className = "film-card-body";
+
+    const leftCol = document.createElement("div");
+    leftCol.className = "film-card-left";
+
     const title = document.createElement("h3");
     title.textContent = film.title ? film.title.toUpperCase() : "Sans titre";
 
@@ -128,14 +140,14 @@ function renderCatalog(films) {
     const tagsP = document.createElement("p");
     tagsP.style.fontSize = "0.85rem";
     tagsP.style.color = "#38bdf8";
-    tagsP.textContent = film.tags && film.tags.length > 0 
-      ? `Genres : ${film.tags.join(", ")}` 
+    tagsP.textContent = film.tags && film.tags.length > 0
+      ? `Genres : ${film.tags.join(", ")}`
       : "Genres : Non spécifié";
 
     const actorsP = document.createElement("p");
     actorsP.style.fontSize = "0.85rem";
-    actorsP.textContent = film.actors && film.actors.length > 0 
-      ? `Acteurs : ${film.actors.join(", ")}` 
+    actorsP.textContent = film.actors && film.actors.length > 0
+      ? `Acteurs : ${film.actors.join(", ")}`
       : "Acteurs : Non renseigné";
 
     const diffusionP = document.createElement("p");
@@ -146,9 +158,8 @@ function renderCatalog(films) {
       diffusionP.textContent = `Plateformes : ${film.platforms && film.platforms.length > 0 ? film.platforms.join(", ") : "Non spécifié"}`;
     }
 
-    const synopsisP = document.createElement("p");
-    synopsisP.style.marginTop = "0.5rem";
-    synopsisP.textContent = film.synopsis || "Aucun synopsis disponible.";
+    const actions = document.createElement("div");
+    actions.style.marginTop = "0.6rem";
 
     const favBtn = document.createElement("button");
     favBtn.type = "button";
@@ -166,7 +177,22 @@ function renderCatalog(films) {
       updateCatalog();
     });
 
-    card.append(title, meta, tagsP, actorsP, diffusionP, synopsisP, favBtn, watchedBtn);
+    actions.append(favBtn, watchedBtn);
+    leftCol.append(title, meta, tagsP, actorsP, diffusionP, actions);
+
+    const rightCol = document.createElement("div");
+    rightCol.className = "film-card-right";
+
+    const synopsisHeading = document.createElement("h4");
+    synopsisHeading.textContent = "Résumé";
+
+    const synopsisP = document.createElement("p");
+    synopsisP.textContent = film.synopsis || "Aucun résumé disponible pour ce film.";
+
+    rightCol.append(synopsisHeading, synopsisP);
+
+    body.append(leftCol, rightCol);
+    card.appendChild(body);
     catalogContainer.appendChild(card);
   });
 }

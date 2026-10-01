@@ -359,6 +359,22 @@ input:disabled {
   text-transform: uppercase;
 }
 
+.btn-edit {
+  background-color: transparent;
+  color: #7dd3fc;
+  border: 1px solid #075985;
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-right: 0.35rem;
+}
+
+.btn-edit:hover {
+  background-color: #075985;
+  color: #e0f2fe;
+}
+
 .btn-delete {
   background-color: transparent;
   color: #fca5a5;

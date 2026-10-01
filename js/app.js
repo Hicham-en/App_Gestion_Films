@@ -33,8 +33,7 @@ function getFilms() {
 
 function checkTitle() {
   const title = titleInput.value.trim();
-  // Le film en cours de modification est ignoré : garder son propre titre
-  // ne doit pas être considéré comme un doublon.
+  // Le film en cours de modification pas doublon.
   const dejaPris = getFilms().some(
     (film) => film.id !== editingId && film.title.toLowerCase() === title.toLowerCase()
   );
@@ -101,8 +100,6 @@ form.addEventListener("submit", (event) => {
   const films = getFilms();
 
   if (editingId) {
-    // On remplace le film à sa place, en gardant son id : les favoris et
-    // l'historique des clients restent valides.
     const index = films.findIndex((f) => f.id === editingId);
     if (index !== -1) films[index] = film;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(films));
@@ -176,9 +173,6 @@ function cancelEdit() {
 
 // ---------- Supprimer un film ----------
 
-// Supprime le film ET son id dans les favoris / l'historique de tous les
-// comptes : sans cela, les listes des clients contiendraient un film
-// qui n'existe plus.
 function deleteFilm(filmId) {
   const films = getFilms();
   const film = films.find((f) => f.id === filmId);
@@ -213,9 +207,7 @@ function deleteFilm(filmId) {
   renderFilmsList();
   return { ok: true, titre: film.title, comptesNettoyes };
 }
-
-// Lit le profil d'un compte sans dépendre de la session : ici on nettoie
-// les comptes des autres, pas celui de l'admin connecté.
+.
 function getProfileFor(key) {
   try {
     const p = JSON.parse(localStorage.getItem(key));

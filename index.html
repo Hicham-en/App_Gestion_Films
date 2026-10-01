@@ -95,6 +95,28 @@
       <button type="submit" class="btn-submit">Ajouter le film</button>
     </form>
 
+    <section id="films-section" class="accounts">
+      <h2>Films en base</h2>
+      <p class="form-hint">
+        Modifier ou supprimer un film. La suppression l'enlève aussi des favoris
+        et de l'historique de tous les comptes.
+      </p>
+
+      <div id="films-alert" class="alert" hidden></div>
+
+      <table class="accounts-table">
+        <thead>
+          <tr>
+            <th>Titre</th>
+            <th>Réalisateur</th>
+            <th>Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="films-list"></tbody>
+      </table>
+    </section>
+
     <section id="accounts-section" class="accounts">
       <h2>Comptes utilisateurs</h2>
       <p class="form-hint" id="accounts-hint">

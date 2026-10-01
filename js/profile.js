@@ -1,20 +1,43 @@
+// ===== Page du profil : voir tous les films, favoris et déjà vus =====
+
 const STORAGE_KEY = "films";
 const PROFILE_KEY = "profile";
 
+// Cette page nécessite que l'utilisateur soit connecté.
+requireRole();
+
+// Les films ajoutés avant que la clé s'appelle "id" (elle s'appelait "isbn")
+// sont convertis une seule fois, puis rangés avec la bonne clé.
 function getFilms() {
+  let films;
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    films = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   } catch {
     return [];
   }
+
+  let modifie = false;
+  const corrects = films.map((film) => {
+    if (film.id) return film;
+    modifie = true;
+    // On remplace l'ancienne clé "isbn" par la clé "id".
+    const { isbn, ...reste } = film;
+    return { ...reste, id: isbn };
+  });
+
+  if (modifie) localStorage.setItem(STORAGE_KEY, JSON.stringify(corrects));
+
+  return corrects;
 }
 
+// Les ids invalides (venus d'anciennes données corrompues) sont retirés,
+// sinon un film à la une fois mis en favori ne s'affiche plus jamais.
 function getProfile() {
   try {
     const p = JSON.parse(localStorage.getItem(PROFILE_KEY));
     return {
-      favorites: Array.isArray(p?.favorites) ? p.favorites : [],
-      watched: Array.isArray(p?.watched) ? p.watched : []
+      favorites: Array.isArray(p?.favorites) ? p.favorites.filter(Boolean) : [],
+      watched: Array.isArray(p?.watched) ? p.watched.filter(Boolean) : []
     };
   } catch {
     return { favorites: [], watched: [] };
@@ -22,6 +45,8 @@ function getProfile() {
 }
 
 function toggleInProfile(list, filmId) {
+  if (!filmId) return;
+
   const profile = getProfile();
   const index = profile[list].indexOf(filmId);
   if (index === -1) profile[list].push(filmId);
@@ -35,9 +60,9 @@ function renderFilms(filter = "all") {
   let films = getFilms();
 
   if (filter === "favorites")
-    films = films.filter((f) => profile.favorites.includes(f.isbn));
+    films = films.filter((f) => profile.favorites.includes(f.id));
   if (filter === "watched")
-    films = films.filter((f) => profile.watched.includes(f.isbn));
+    films = films.filter((f) => profile.watched.includes(f.id));
 
   container.innerHTML = "";
   if (films.length === 0) {
@@ -57,21 +82,21 @@ function renderFilms(filter = "all") {
 
     const favBtn = document.createElement("button");
     favBtn.type = "button";
-    favBtn.textContent = profile.favorites.includes(film.isbn)
+    favBtn.textContent = profile.favorites.includes(film.id)
       ? "★ Retirer des favoris"
       : "☆ Mettre en favori";
     favBtn.addEventListener("click", () => {
-      toggleInProfile("favorites", film.isbn);
+      toggleInProfile("favorites", film.id);
       renderFilms(filter);
     });
 
     const watchedBtn = document.createElement("button");
     watchedBtn.type = "button";
-    watchedBtn.textContent = profile.watched.includes(film.isbn)
+    watchedBtn.textContent = profile.watched.includes(film.id)
       ? "✔ Déjà vu"
       : "Marquer comme déjà vu";
     watchedBtn.addEventListener("click", () => {
-      toggleInProfile("watched", film.isbn);
+      toggleInProfile("watched", film.id);
       renderFilms(filter);
     });
 

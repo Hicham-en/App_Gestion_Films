@@ -1,4 +1,9 @@
+// ===== Page d'administration : ajouter un film =====
+
 const STORAGE_KEY = "films";
+
+// Cette page est réservée aux administrateurs.
+requireRole("admin");
 
 const form = document.getElementById("add-movie-form");
 const titleInput = document.getElementById("title");
@@ -6,16 +11,15 @@ const cinemaOnly = document.getElementById("cinema-only");
 const platformsGroup = document.getElementById("platforms-group");
 const submitButton = form.querySelector(".btn-submit");
 
-const alert = document.createElement("p");
-alert.hidden = true;
-alert.style.cssText =
-  "padding:10px 12px;border-radius:6px;font-weight:600;margin:0 0 12px;" +
-  "background:#fde8e8;color:#b02020;border:1px solid #f0b4b4";
-form.prepend(alert);
+// Zone de message affichée en haut du formulaire (style .alert de style.css)
+const alertBox = document.createElement("p");
+alertBox.className = "alert";
+alertBox.hidden = true;
+form.prepend(alertBox);
 
 function showAlert(text) {
-  alert.textContent = text;
-  alert.hidden = !text;
+  alertBox.textContent = text;
+  alertBox.hidden = text === "";
 }
 
 function getFilms() {
@@ -26,21 +30,24 @@ function getFilms() {
   }
 }
 
-function alreadyExists(title) {
-  return getFilms().some((film) => film.title === title);
-}
-
-titleInput.addEventListener("input", () => {
-  titleInput.value = titleInput.value.toLowerCase();
-  checkTitle();
-});
-
+// Un titre ne peut être utilisé qu'une seule fois (comparaison sans casse).
+// Affiche le message si besoin, bloque le bouton, et renvoie l'erreur ("")
+// pour que l'appelant puisse aussi interrompre l'enregistrement.
 function checkTitle() {
-  const duplicate = titleInput.value !== "" && alreadyExists(titleInput.value);
-  showAlert(duplicate ? "Titre déjà existant" : "");
-  submitButton.disabled = duplicate;
+  const title = titleInput.value.trim();
+  const dejaPris = getFilms().some((film) => film.title.toLowerCase() === title.toLowerCase());
+  const message = title !== "" && dejaPris ? "Un film avec ce titre existe déjà." : "";
+
+  showAlert(message);
+  submitButton.disabled = message !== "";
+
+  return message;
 }
 
+titleInput.addEventListener("input", checkTitle);
+
+// Si le film sort uniquement en salle, les plateformes de streaming
+// n'ont aucun sens : on masque la liste et on décoche tout.
 function togglePlatforms() {
   const cinema = cinemaOnly.checked;
   platformsGroup.hidden = cinema;
@@ -55,14 +62,10 @@ togglePlatforms();
 form.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  const title = titleInput.value.trim().toLowerCase();
-  titleInput.value = title;
-  if (title === "") return showAlert("Le titre du film est obligatoire.");
-  if (alreadyExists(title)) return showAlert("Titre déjà existant");
+  if (checkTitle()) return;
 
-  if (cinemaOnly.checked) {
-    platforms = [];
-  } else {
+  let platforms = [];
+  if (!cinemaOnly.checked) {
     platforms = [...form.querySelectorAll('input[name="platforms[]"]:checked')].map(
       (input) => input.value
     );
@@ -75,9 +78,10 @@ form.addEventListener("submit", (event) => {
   const data = new FormData(form);
 
   const film = {
-    isbn: crypto.randomUUID(),
-    title,
-    tags: data.get("genre")
+    id: crypto.randomUUID(),
+    title: titleInput.value.trim(),
+    tags: data
+      .get("genre")
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean),
@@ -100,6 +104,5 @@ form.addEventListener("submit", (event) => {
 
   form.reset();
   togglePlatforms();
-  showAlert("");
-  submitButton.disabled = false;
+  checkTitle();
 });

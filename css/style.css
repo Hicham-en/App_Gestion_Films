@@ -170,6 +170,55 @@ input:disabled {
   border-color: #166534;
 }
 
+
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #1e293b;
+}
+
+.top-bar .who {
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.top-bar .who strong {
+  color: #38bdf8;
+}
+
+.top-bar .role {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background-color: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #334155;
+}
+
+.btn-logout {
+  background-color: transparent;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-logout:hover {
+  color: #fecaca;
+  border-color: #7f1d1d;
+}
+
 .password-rules {
   margin: 0.25rem 0 0;
   padding-left: 1.1rem;

@@ -1,13 +1,10 @@
 // ===== Page du profil : voir tous les films, favoris et déjà vus =====
 
 const STORAGE_KEY = "films";
-const PROFILE_KEY = "profile";
 
-// Cette page nécessite que l'utilisateur soit connecté.
 requireRole();
 
-// Les films ajoutés avant que la clé s'appelle "id" (elle s'appelait "isbn")
-// sont convertis une seule fois, puis rangés avec la bonne clé.
+
 function getFilms() {
   let films;
   try {
@@ -30,11 +27,19 @@ function getFilms() {
   return corrects;
 }
 
-// Les ids invalides (venus d'anciennes données corrompues) sont retirés,
-// sinon un film à la une fois mis en favori ne s'affiche plus jamais.
+
+function profileKey() {
+  const session = getSession();
+  return session ? `profile_${session.id}` : null;
+}
+
+
 function getProfile() {
+  const key = profileKey();
+  if (!key) return { favorites: [], watched: [] };
+
   try {
-    const p = JSON.parse(localStorage.getItem(PROFILE_KEY));
+    const p = JSON.parse(localStorage.getItem(key));
     return {
       favorites: Array.isArray(p?.favorites) ? p.favorites.filter(Boolean) : [],
       watched: Array.isArray(p?.watched) ? p.watched.filter(Boolean) : []
@@ -45,13 +50,14 @@ function getProfile() {
 }
 
 function toggleInProfile(list, filmId) {
-  if (!filmId) return;
+  const key = profileKey();
+  if (!filmId || !key) return;
 
   const profile = getProfile();
   const index = profile[list].indexOf(filmId);
   if (index === -1) profile[list].push(filmId);
   else profile[list].splice(index, 1);
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  localStorage.setItem(key, JSON.stringify(profile));
 }
 
 function renderFilms(filter = "all") {

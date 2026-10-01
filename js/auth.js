@@ -3,6 +3,16 @@
 const USERS_KEY = "users";
 const SESSION_KEY = "session";
 
+// Compte administrateur principal, créé d'origine au démarrage.
+// C'est le SEUL habilité à créer d'autres comptes administrateurs.
+// Les autres admins, qu'il crée, peuvent seulement créer des clients.
+const ADMIN = {
+  username: "Admin",
+  password: "Admin@12",
+  role: "admin",
+  isPrincipal: true
+};
+
 // ---------- Stockage ----------
 
 function getUsers() {
@@ -37,28 +47,16 @@ function validatePassword(password) {
   return erreurs.length ? `Mot de passe invalide — il faut : ${erreurs.join(", ")}.` : null;
 }
 
-// Hash SHA-256 pour ne pas stocker le mot de passe en clair
-async function hashPassword(password) {
-  const bytes = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 // ---------- Inscription ----------
-async function register(username, password, role) {
+// Toute inscription crée un compte client. Le seul compte administrateur
+// est celui défini plus haut (ADMIN), créé automatiquement au démarrage.
+function register(username, password) {
   username = username.trim();
 
   if (!username) return { ok: false, error: "L'identifiant est obligatoire." };
 
   const passwordError = validatePassword(password);
   if (passwordError) return { ok: false, error: passwordError };
-
-  // Le <select> de register.html ne propose que ces deux valeurs,
-  // on revérifie quand même pour ne pas créer de compte avec un rôle inconnu.
-  if (role !== "client" && role !== "admin")
-    return { ok: false, error: "Le rôle doit être client ou administrateur." };
 
   const users = getUsers();
   if (users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
@@ -67,22 +65,87 @@ async function register(username, password, role) {
   users.push({
     id: crypto.randomUUID(),
     username,
-    passwordHash: await hashPassword(password),
-    role
+    password,
+    role: "client"
   });
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
 
   return { ok: true };
 }
 
+// ---------- Création d'un compte (réservée aux administrateurs) ----------
+// Les utilisateurs créent eux-mêmes leur compte client via register().
+// Ici, l'administration crée des comptes : un admin pour des clients,
+// et le compte principal seul peut créer un admin.
+function createAccount(username, password, role) {
+  const session = getSession();
+  if (!session || session.role !== "admin")
+    return { ok: false, error: "Seul un administrateur peut créer un compte." };
+
+  username = username.trim();
+  if (!username) return { ok: false, error: "L'identifiant est obligatoire." };
+
+  if (role !== "client" && role !== "admin")
+    return { ok: false, error: "Le rôle doit être client ou administrateur." };
+
+  // Créer un administrateur est réservé au compte principal.
+  if (role === "admin" && !isPrincipalAdmin())
+    return {
+      ok: false,
+      error: "Seul le compte administrateur principal peut créer un administrateur."
+    };
+
+  const passwordError = validatePassword(password);
+  if (passwordError) return { ok: false, error: passwordError };
+
+  const users = getUsers();
+  if (users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
+    return { ok: false, error: "Cet identifiant existe déjà." };
+
+  users.push({ id: crypto.randomUUID(), username, password, role });
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+  return { ok: true };
+}
+
+// ---------- Création du compte administrateur ----------
+// Appelé au chargement de chaque page. Sans effet si le compte existe déjà
+// (il n'est donc jamais écrasé ni dupliqué).
+function ensureAdmin() {
+  const dejaPresent = getUsers().some(
+    (u) => u.username.toLowerCase() === ADMIN.username.toLowerCase()
+  );
+  if (dejaPresent) return;
+
+  const users = getUsers();
+  users.push({
+    id: crypto.randomUUID(),
+    username: ADMIN.username,
+    password: ADMIN.password,
+    role: ADMIN.role,
+    isPrincipal: true
+  });
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+// Vrai si l'utilisateur connecté est le compte administrateur principal.
+// Le drapeau est stocké avec le compte, pas dans la session : un admin
+// secondaire ne peut pas se le fabriquer en modifiant la session.
+function isPrincipalAdmin() {
+  const session = getSession();
+  if (!session || session.role !== "admin") return false;
+
+  const user = getUsers().find((u) => u.id === session.id);
+  return user?.isPrincipal === true;
+}
+
 // ---------- Connexion / déconnexion ----------
-async function login(username, password) {
+function login(username, password) {
   const user = getUsers().find(
     (u) => u.username.toLowerCase() === username.trim().toLowerCase()
   );
-  const hash = await hashPassword(password);
 
-  if (!user || user.passwordHash !== hash)
+  if (!user || user.password !== password)
     return { ok: false, error: "Identifiant ou mot de passe incorrect." };
 
   localStorage.setItem(
@@ -133,7 +196,7 @@ if (registerForm) {
     if (password !== data.get("password2"))
       return showAuthMessage(registerForm, "Les mots de passe ne correspondent pas.", true);
 
-    const result = await register(data.get("username"), password, data.get("role"));
+    const result = register(data.get("username"), password);
 
     if (!result.ok) return showAuthMessage(registerForm, result.error, true);
 
@@ -143,13 +206,69 @@ if (registerForm) {
   });
 }
 
+// Page d'administration : l'admin connecté crée les comptes,
+// et la liste des comptes existants est affichée sous le formulaire.
+const accountForm = document.getElementById("create-account-form");
+if (accountForm) {
+  accountForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(accountForm);
+
+    const result = createAccount(
+      data.get("username"),
+      data.get("password"),
+      data.get("role")
+    );
+
+    if (!result.ok) return showAuthMessage(accountForm, result.error, true);
+
+    accountForm.reset();
+    showAuthMessage(accountForm, "Compte créé.", false);
+    renderAccounts();
+  });
+
+  // Seul le compte principal peut choisir le rôle admin : on masque
+  // l'option pour les autres administrateurs plutôt que de la laisser
+  // échouer à la validation.
+  if (!isPrincipalAdmin()) {
+    const roleSelect = document.getElementById("account-role");
+    const optionAdmin = roleSelect.querySelector('option[value="admin"]');
+    if (optionAdmin) optionAdmin.remove();
+
+    const hint = document.getElementById("accounts-hint");
+    if (hint) hint.textContent = "Vous pouvez créer des comptes clients.";
+  }
+
+  renderAccounts();
+}
+
+// Affiche le tableau des comptes (jamais les mots de passe).
+function renderAccounts() {
+  const tbody = document.getElementById("accounts-list");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  for (const user of getUsers()) {
+    const row = document.createElement("tr");
+    const name = document.createElement("td");
+    name.textContent = user.username;
+    const role = document.createElement("td");
+    role.textContent =
+      user.role === "admin"
+        ? user.isPrincipal ? "Administrateur principal" : "Administrateur"
+        : "Client";
+    row.append(name, role);
+    tbody.append(row);
+  }
+}
+
 const loginForm = document.getElementById("login-form");
 if (loginForm) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = new FormData(loginForm);
 
-    const result = await login(data.get("username"), data.get("password"));
+    const result = login(data.get("username"), data.get("password"));
 
     if (!result.ok) return showAuthMessage(loginForm, result.error, true);
 
@@ -158,34 +277,66 @@ if (loginForm) {
   });
 }
 
-const logoutBtn = document.getElementById("logout-btn");
-if (logoutBtn) {
+// ---------- Barre de navigation ----------
+// Écrite une seule fois ici et injectée dans le <nav class="navbar">
+// de chaque page. Toutes les pages connectées sont donc reliées entre elles,
+// et il n'y a qu'un seul endroit à modifier si la navigation change.
+function buildNavbar() {
+  const nav = document.querySelector(".navbar");
+  if (!nav) return;
+
+  const session = getSession();
+  nav.innerHTML = "";
+
+  if (!session) return;
+
+  // Nom de l'utilisateur + rôle, à gauche.
+  const who = document.createElement("span");
+  who.className = "who";
+
+  const name = document.createElement("strong");
+  name.textContent = session.username;
+
+  const role = document.createElement("span");
+  role.className = "role";
+  role.textContent = session.role === "admin" ? "Administrateur" : "Client";
+
+  who.append(name, " ", role);
+  nav.append(who);
+
+  // Liens vers les autres pages, à droite.
+  const liens = [{ href: "catalogue.html", label: "Catalogue" }];
+
+  if (session.role === "admin") {
+    liens.push({ href: "profil.html", label: "Mon profil" });
+    liens.push({ href: "index.html", label: "Administration" });
+  } else {
+    // Un client n'a pas de liste de films à gérer : ses favoris et son
+    // historique sont dans le catalogue.
+    liens.push({ href: "profil.html", label: "Mes films" });
+  }
+
+  for (const { href, label } of liens) {
+    const a = document.createElement("a");
+    a.href = href;
+    a.textContent = label;
+    nav.append(a);
+  }
+
+  const logoutBtn = document.createElement("button");
+  logoutBtn.type = "button";
+  logoutBtn.id = "logout-btn";
+  logoutBtn.className = "btn-logout";
+  logoutBtn.textContent = "Déconnexion";
   logoutBtn.addEventListener("click", () => {
     logout();
     window.location.href = "login.html";
   });
+  nav.append(logoutBtn);
 }
 
-// ---------- Affichage selon les droits ----------
-// Remplit la barre de session et masque les liens réservés aux administrateurs
-function applyPermissions() {
-  const session = getSession();
-  if (!session) return;
+buildNavbar();
 
-  const who = document.querySelector(".top-bar .who");
-  if (who) {
-    who.innerHTML = "";
-    const name = document.createElement("strong");
-    name.textContent = session.username;
-    const role = document.createElement("span");
-    role.className = "role";
-    role.textContent = session.role === "admin" ? "Administrateur" : "Client";
-    who.append(name, " ", role);
-  }
-
-  if (session.role === "admin") return;
-
-  document.querySelectorAll("[data-admin-only]").forEach((el) => el.remove());
-}
-
-applyPermissions();
+// Le compte administrateur existe dès la première visite,
+// sans écraser un compte déjà présent.
+ensureAdmin();

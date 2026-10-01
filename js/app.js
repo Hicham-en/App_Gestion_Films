@@ -2,7 +2,6 @@
 
 const STORAGE_KEY = "films";
 
-// Cette page est réservée aux administrateurs.
 requireRole("admin");
 
 const form = document.getElementById("add-movie-form");
@@ -11,7 +10,6 @@ const cinemaOnly = document.getElementById("cinema-only");
 const platformsGroup = document.getElementById("platforms-group");
 const submitButton = form.querySelector(".btn-submit");
 
-// Zone de message affichée en haut du formulaire (style .alert de style.css)
 const alertBox = document.createElement("p");
 alertBox.className = "alert";
 alertBox.hidden = true;
@@ -30,9 +28,6 @@ function getFilms() {
   }
 }
 
-// Un titre ne peut être utilisé qu'une seule fois (comparaison sans casse).
-// Affiche le message si besoin, bloque le bouton, et renvoie l'erreur ("")
-// pour que l'appelant puisse aussi interrompre l'enregistrement.
 function checkTitle() {
   const title = titleInput.value.trim();
   const dejaPris = getFilms().some((film) => film.title.toLowerCase() === title.toLowerCase());
@@ -46,8 +41,6 @@ function checkTitle() {
 
 titleInput.addEventListener("input", checkTitle);
 
-// Si le film sort uniquement en salle, les plateformes de streaming
-// n'ont aucun sens : on masque la liste et on décoche tout.
 function togglePlatforms() {
   const cinema = cinemaOnly.checked;
   platformsGroup.hidden = cinema;

@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ajouter un film</title>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <main class="container">
+    <nav class="navbar"></nav>
+
     <h1>Administration — Ajouter un film</h1>
 
     <form id="add-movie-form" class="movie-form">
@@ -92,6 +94,62 @@
 
       <button type="submit" class="btn-submit">Ajouter le film</button>
     </form>
+
+    <section id="accounts-section" class="accounts">
+      <h2>Comptes utilisateurs</h2>
+      <p class="form-hint" id="accounts-hint">
+        Seul le compte administrateur principal peut créer un autre administrateur.
+      </p>
+
+      <form id="create-account-form" class="movie-form">
+        <fieldset>
+          <legend>Nouveau compte</legend>
+
+          <div id="create-account-alert" class="alert" hidden></div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="account-username">Identifiant</label>
+              <input type="text" id="account-username" name="username" required>
+            </div>
+
+            <div class="form-group">
+              <label for="account-role">Profil</label>
+              <select id="account-role" name="role">
+                <option value="client">Client</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="account-password">Mot de passe</label>
+            <input type="text" id="account-password" name="password" required>
+            <ul class="password-rules">
+              <li>Exactement 8 caractères</li>
+              <li>Une majuscule</li>
+              <li>Une minuscule</li>
+              <li>Un chiffre</li>
+              <li>Un caractère spécial</li>
+            </ul>
+          </div>
+
+          <button type="submit" class="btn-submit">Créer le compte</button>
+        </fieldset>
+      </form>
+
+      <table class="accounts-table">
+        <thead>
+          <tr>
+            <th>Identifiant</th>
+            <th>Profil</th>
+          </tr>
+        </thead>
+        <tbody id="accounts-list"></tbody>
+      </table>
+    </section>
   </main>
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
   </body>
 </html>

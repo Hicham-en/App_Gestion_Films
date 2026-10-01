@@ -1,20 +1,45 @@
+// ===== Catalogue des films =====
+
 const STORAGE_KEY = "films";
-const PROFILE_KEY = "profile";
+
+requireRole();
 
 function getFilms() {
+  let films;
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    films = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
   } catch {
     return [];
   }
+
+  let modifie = false;
+  const corrects = films.map((film) => {
+    if (film.id) return film;
+    modifie = true;
+    const { isbn, ...reste } = film;
+    return { ...reste, id: isbn };
+  });
+
+  if (modifie) localStorage.setItem(STORAGE_KEY, JSON.stringify(corrects));
+
+  return corrects;
 }
 
+function profileKey() {
+  const session = getSession();
+  return session ? `profile_${session.id}` : null;
+}
+
+
 function getProfile() {
+  const key = profileKey();
+  if (!key) return { favorites: [], watched: [] };
+
   try {
-    const p = JSON.parse(localStorage.getItem(PROFILE_KEY));
+    const p = JSON.parse(localStorage.getItem(key));
     return {
-      favorites: Array.isArray(p?.favorites) ? p.favorites : [],
-      watched: Array.isArray(p?.watched) ? p.watched : []
+      favorites: Array.isArray(p?.favorites) ? p.favorites.filter(Boolean) : [],
+      watched: Array.isArray(p?.watched) ? p.watched.filter(Boolean) : []
     };
   } catch {
     return { favorites: [], watched: [] };
@@ -22,11 +47,14 @@ function getProfile() {
 }
 
 function toggleInProfile(list, filmId) {
+  const key = profileKey();
+  if (!filmId || !key) return;
+
   const profile = getProfile();
   const index = profile[list].indexOf(filmId);
   if (index === -1) profile[list].push(filmId);
   else profile[list].splice(index, 1);
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  localStorage.setItem(key, JSON.stringify(profile));
 }
 
 const searchTitleInput = document.getElementById("search-title");
@@ -129,17 +157,17 @@ function renderCatalog(films) {
     // Actions Favoris / Déjà vu
     const favBtn = document.createElement("button");
     favBtn.type = "button";
-    favBtn.textContent = profile.favorites.includes(film.isbn) ? "★ Favori" : "☆ Favori";
+    favBtn.textContent = profile.favorites.includes(film.id) ? "★ Favori" : "☆ Favori";
     favBtn.addEventListener("click", () => {
-      toggleInProfile("favorites", film.isbn);
+      toggleInProfile("favorites", film.id);
       updateCatalog();
     });
 
     const watchedBtn = document.createElement("button");
     watchedBtn.type = "button";
-    watchedBtn.textContent = profile.watched.includes(film.isbn) ? "✔ Vu" : "Marquer vu";
+    watchedBtn.textContent = profile.watched.includes(film.id) ? "✔ Vu" : "Marquer vu";
     watchedBtn.addEventListener("click", () => {
-      toggleInProfile("watched", film.isbn);
+      toggleInProfile("watched", film.id);
       updateCatalog();
     });
 

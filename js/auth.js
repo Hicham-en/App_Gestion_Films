@@ -106,6 +106,40 @@ function register(username, password) {
   return { ok: true };
 }
 
+// ---------- Suppression d'un compte (réservée aux administrateurs) ----------
+// Supprime le compte, sa session s'il était connecté, et ses favoris /
+// son historique (ils sont privés à ce compte, donc inutiles sans lui).
+// Deux protections : on ne supprime jamais son propre compte, ni le compte
+// administrateur principal (le projet garderait plus aucun accès).
+function deleteAccount(userId) {
+  const session = getSession();
+  if (!session || session.role !== "admin")
+    return { ok: false, error: "Seul un administrateur peut supprimer un compte." };
+
+  const users = getUsers();
+  const cible = users.find((u) => u.id === userId);
+  if (!cible) return { ok: false, error: "Ce compte n'existe pas." };
+
+  if (cible.id === session.id)
+    return { ok: false, error: "Vous ne pouvez pas supprimer votre propre compte." };
+
+  if (cible.isPrincipal)
+    return {
+      ok: false,
+      error: "Le compte administrateur principal ne peut pas être supprimé."
+    };
+
+  localStorage.setItem(
+    USERS_KEY,
+    JSON.stringify(users.filter((u) => u.id !== cible.id))
+  );
+
+  // Les listes du compte supprimé ne serviraient plus à personne.
+  localStorage.removeItem(`profile_${cible.id}`);
+
+  return { ok: true, supprime: cible.username };
+}
+
 // ---------- Création d'un compte (réservée aux administrateurs) ----------
 // Les utilisateurs créent eux-mêmes leur compte client via register().
 // Ici, l'administration crée des comptes : un admin pour des clients,
@@ -280,7 +314,9 @@ function renderAccounts() {
   const tbody = document.getElementById("accounts-list");
   if (!tbody) return;
 
+  const session = getSession();
   tbody.innerHTML = "";
+
   for (const user of getUsers()) {
     const row = document.createElement("tr");
     const name = document.createElement("td");
@@ -291,6 +327,46 @@ function renderAccounts() {
         ? user.isPrincipal ? "Administrateur principal" : "Administrateur"
         : "Client";
     row.append(name, role);
+
+    const actions = document.createElement("td");
+
+    // Le compte connecté et le compte principal ne sont jamais supprimables :
+    // le bouton n'est tout simplement pas affiché pour eux.
+    const supprimerPossible =
+      session &&
+      session.role === "admin" &&
+      user.id !== session.id &&
+      !user.isPrincipal;
+
+    if (supprimerPossible) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn-delete";
+      btn.textContent = "Supprimer";
+
+      btn.addEventListener("click", () => {
+        // Confirmation avant une action définitive.
+        const ok = confirm(
+          `Supprimer le compte « ${user.username} » ?\n` +
+            "Ses favoris et son historique seront aussi supprimés."
+        );
+        if (!ok) return;
+
+        const result = deleteAccount(user.id);
+        showAuthMessage(
+          document.getElementById("create-account-form"),
+          result.ok ? `Compte « ${result.supprime} » supprimé.` : result.error,
+          !result.ok
+        );
+        renderAccounts();
+      });
+
+      actions.append(btn);
+    } else {
+      actions.textContent = user.id === session?.id ? "—" : "";
+    }
+
+    row.append(actions);
     tbody.append(row);
   }
 }

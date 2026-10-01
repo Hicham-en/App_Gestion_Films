@@ -32,13 +32,13 @@ function getSession() {
 }
 
 // ---------- Mot de passe ----------
-// Règle unique du projet : exactement 8 caractères, dont 1 majuscule,
+// Règle unique du projet : au moins 4 caractères, dont 1 majuscule,
 // 1 minuscule, 1 chiffre et 1 caractère spécial.
 // Renvoie le message d'erreur, ou null si le mot de passe est correct.
 function validatePassword(password) {
   const erreurs = [];
 
-  if (password.length !== 8) erreurs.push("exactement 8 caractères");
+  if (password.length < 4) erreurs.push("au moins 4 caractères");
   if (!/[A-Z]/.test(password)) erreurs.push("1 majuscule");
   if (!/[a-z]/.test(password)) erreurs.push("1 minuscule");
   if (!/[0-9]/.test(password)) erreurs.push("1 chiffre");

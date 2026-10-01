@@ -23,6 +23,39 @@ function getUsers() {
   }
 }
 
+// ---------- Outil de développement ----------
+// Affiche la liste des comptes AVEC leurs mots de passe, dans la console
+// du navigateur. Pensé pour vérifier les données pendant le TP uniquement.
+//  - afficherUsers()      : tableau lisible dans la console
+//  - afficherUsers(true)  : ajoute les identifiants techniques (id)
+// À appeler manuellement : ouvrir la console (F12) puis taper afficherUsers()
+// Aucun bouton ne l'appelle : elle reste invisible dans l'interface.
+function afficherUsers(avecIds = false) {
+  const users = getUsers();
+
+  if (!users.length) {
+    console.log("Aucun compte enregistré.");
+    return [];
+  }
+
+  console.table(
+    users.map((u) => {
+const base = {
+      identifiant: u.username,
+      "mot de passe": u.password,
+      profil: u.role === "admin" ? "Administrateur" : "Client"
+    };
+    // L'id en premiere colonne quand on le demande.
+    return avecIds ? { id: u.id, ...base } : base;
+    })
+  );
+
+  console.log(
+    `${users.length} compte(s) enregistré(s), mots de passe en clair.`
+  );
+  return users;
+}
+
 function getSession() {
   try {
     return JSON.parse(localStorage.getItem(SESSION_KEY));

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalogue des films</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Catalogue des films</h1>
+
+    <nav class="auth-nav" style="margin-bottom: 1.5rem;">
+      <a href="profil.html">Mon profil</a>
+      <a href="index.html">Administration</a>
+    </nav>
+
+    <fieldset style="margin-bottom: 2rem;">
+      <legend>Rechercher & Filtrer</legend>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="search-title">Titre du film</label>
+          <input type="text" id="search-title" placeholder="Ex. : Inception...">
+        </div>
+
+        <div class="form-group">
+          <label for="search-actor">Acteur</label>  
+          <input type="text" id="search-actor" placeholder="Ex. : DiCaprio...">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="sort-by">Trier par</label>
+          <select id="sort-by">
+            <option value="title">Titre</option>
+            <option value="rating">Note</option>
+            <option value="release_date">Date de sortie</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="sort-order">Ordre</label>
+          <select id="sort-order">
+            <option value="asc">Ascendant (A-Z / Croissant)</option>
+            <option value="desc">Descendant (Z-A / Décroissant)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 0.5rem;">
+        <label>Plateforme de streaming</label>
+        <div class="platforms-list">
+          <label><input type="radio" name="platform-filter" value="all" checked> Toutes</label>
+          <label><input type="radio" name="platform-filter" value="netflix"> Netflix</label>
+          <label><input type="radio" name="platform-filter" value="prime"> Prime Video</label>
+          <label><input type="radio" name="platform-filter" value="disney"> Disney+</label>
+          <label><input type="radio" name="platform-filter" value="canal"> Canal+</label>
+          <label><input type="radio" name="platform-filter" value="cinema"> En salle uniquement</label>
+        </div>
+      </div>
+    </fieldset>
+
+    <section>
+      <div id="films-count" style="margin-bottom: 1rem; color: #94a3b8; font-size: 0.95rem;"></div>
+      <div id="catalog-list"></div>
+    </section>
+  </main>
+
+  <script src="js/catalogue.js"></script>
+</body>
+</html>

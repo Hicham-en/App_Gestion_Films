@@ -1,6 +1,5 @@
 // ===== Authentification : inscription, connexion, déconnexion =====
 
-const USERS_KEY = "users";
 const SESSION_KEY = "session";
 
 // Compte administrateur principal, créé d'origine au démarrage.
@@ -14,18 +13,24 @@ const ADMIN = {
 };
 
 // ---------- Stockage ----------
+// Les comptes vivent dans MongoDB : ils sont chargés au démarrage de la
+// page puis gardés en mémoire le temps de la visite (voir demarrer()).
+let comptesEnMemoire = [];
+
+// Remplace l'ancien tableau de comptes par la liste venue du serveur.
+function setUsers(utilisateurs) {
+  comptesEnMemoire = utilisateurs;
+}
 
 function getUsers() {
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
-  } catch {
-    return [];
-  }
+  return comptesEnMemoire;
 }
 
 // ---------- Outil de développement ----------
-// Affiche la liste des comptes AVEC leurs mots de passe, dans la console
-// du navigateur. Pensé pour vérifier les données pendant le TP uniquement.
+// Affiche la liste des comptes dans la console du navigateur, pour
+// vérifier les données pendant le TP. Les mots de passe ne sont plus
+// disponibles ici : ils restent dans la base et ne descendent jamais
+// dans le navigateur.
 //  - afficherUsers()      : tableau lisible dans la console
 //  - afficherUsers(true)  : ajoute les identifiants techniques (id)
 // À appeler manuellement : ouvrir la console (F12) puis taper afficherUsers()
@@ -40,19 +45,16 @@ function afficherUsers(avecIds = false) {
 
   console.table(
     users.map((u) => {
-const base = {
-      identifiant: u.username,
-      "mot de passe": u.password,
-      profil: u.role === "admin" ? "Administrateur" : "Client"
-    };
-    // L'id en premiere colonne quand on le demande.
-    return avecIds ? { id: u.id, ...base } : base;
+      const base = {
+        identifiant: u.username,
+        profil: u.role === "admin" ? "Administrateur" : "Client"
+      };
+      // L'id en premiere colonne quand on le demande.
+      return avecIds ? { id: u.id, ...base } : base;
     })
   );
 
-  console.log(
-    `${users.length} compte(s) enregistré(s), mots de passe en clair.`
-  );
+  console.log(`${users.length} compte(s) enregistré(s).`);
   return users;
 }
 
@@ -83,7 +85,7 @@ function validatePassword(password) {
 // ---------- Inscription ----------
 // Toute inscription crée un compte client. Le seul compte administrateur
 // est celui défini plus haut (ADMIN), créé automatiquement au démarrage.
-function register(username, password) {
+async function register(username, password) {
   username = username.trim();
 
   if (!username) return { ok: false, error: "L'identifiant est obligatoire." };
@@ -91,18 +93,15 @@ function register(username, password) {
   const passwordError = validatePassword(password);
   if (passwordError) return { ok: false, error: passwordError };
 
-  const users = getUsers();
-  if (users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
+  // Le serveur refuse aussi les doublons ; ce test local evite un aller-retour.
+  if (getUsers().some((u) => u.username.toLowerCase() === username.toLowerCase()))
     return { ok: false, error: "Cet identifiant existe déjà." };
 
-  users.push({
-    id: crypto.randomUUID(),
-    username,
-    password,
-    role: "client"
-  });
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  const resultat = await creerCompte(username, password, "client");
+  if (!resultat.ok) return resultat;
 
+  // On recharge la liste : le nouveau compte doit y figurer.
+  setUsers(await chargerComptes());
   return { ok: true };
 }
 
@@ -111,13 +110,12 @@ function register(username, password) {
 // son historique (ils sont privés à ce compte, donc inutiles sans lui).
 // Deux protections : on ne supprime jamais son propre compte, ni le compte
 // administrateur principal (le projet garderait plus aucun accès).
-function deleteAccount(userId) {
+async function deleteAccount(userId) {
   const session = getSession();
   if (!session || session.role !== "admin")
     return { ok: false, error: "Seul un administrateur peut supprimer un compte." };
 
-  const users = getUsers();
-  const cible = users.find((u) => u.id === userId);
+  const cible = getUsers().find((u) => u.id === userId);
   if (!cible) return { ok: false, error: "Ce compte n'existe pas." };
 
   if (cible.id === session.id)
@@ -129,14 +127,12 @@ function deleteAccount(userId) {
       error: "Le compte administrateur principal ne peut pas être supprimé."
     };
 
-  localStorage.setItem(
-    USERS_KEY,
-    JSON.stringify(users.filter((u) => u.id !== cible.id))
-  );
+  // Le serveur supprime aussi le profil : les favoris et l'historique
+  // de ce compte ne serviraient plus a personne.
+  const ok = await supprimerCompte(cible.id);
+  if (!ok) return { ok: false, error: "La suppression a échoué." };
 
-  // Les listes du compte supprimé ne serviraient plus à personne.
-  localStorage.removeItem(`profile_${cible.id}`);
-
+  setUsers(await chargerComptes());
   return { ok: true, supprime: cible.username };
 }
 
@@ -144,7 +140,7 @@ function deleteAccount(userId) {
 // Les utilisateurs créent eux-mêmes leur compte client via register().
 // Ici, l'administration crée des comptes : un admin pour des clients,
 // et le compte principal seul peut créer un admin.
-function createAccount(username, password, role) {
+async function createAccount(username, password, role) {
   const session = getSession();
   if (!session || session.role !== "admin")
     return { ok: false, error: "Seul un administrateur peut créer un compte." };
@@ -165,34 +161,35 @@ function createAccount(username, password, role) {
   const passwordError = validatePassword(password);
   if (passwordError) return { ok: false, error: passwordError };
 
-  const users = getUsers();
-  if (users.some((u) => u.username.toLowerCase() === username.toLowerCase()))
+  // Le serveur refuse aussi les doublons ; ce test local evite un aller-retour.
+  if (getUsers().some((u) => u.username.toLowerCase() === username.toLowerCase()))
     return { ok: false, error: "Cet identifiant existe déjà." };
 
-  users.push({ id: crypto.randomUUID(), username, password, role });
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  const resultat = await creerCompte(username, password, role);
+  if (!resultat.ok) return resultat;
 
+  setUsers(await chargerComptes());
   return { ok: true };
 }
 
 // ---------- Création du compte administrateur ----------
 // Appelé au chargement de chaque page. Sans effet si le compte existe déjà
-// (il n'est donc jamais écrasé ni dupliqué).
-function ensureAdmin() {
+// dans la base (il n'est donc jamais écrasé ni dupliqué) : c'est le serveur
+// qui refuse un identifiant déjà pris.
+async function ensureAdmin() {
   const dejaPresent = getUsers().some(
     (u) => u.username.toLowerCase() === ADMIN.username.toLowerCase()
   );
   if (dejaPresent) return;
 
-  const users = getUsers();
-  users.push({
-    id: crypto.randomUUID(),
-    username: ADMIN.username,
-    password: ADMIN.password,
-    role: ADMIN.role,
-    isPrincipal: true
-  });
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  const resultat = await creerCompte(
+    ADMIN.username,
+    ADMIN.password,
+    ADMIN.role,
+    true
+  );
+
+  if (resultat.ok) setUsers(await chargerComptes());
 }
 
 // Vrai si l'utilisateur connecté est le compte administrateur principal.
@@ -207,12 +204,20 @@ function isPrincipalAdmin() {
 }
 
 // ---------- Connexion / déconnexion ----------
-function login(username, password) {
+async function login(username, password) {
+  // Sur la page de connexion il n'y a pas de session, donc les comptes
+  // peuvent n'avoir jamais ete charges : on s'en assure ici.
+  if (!getUsers().length) setUsers(await chargerComptes());
+
   const user = getUsers().find(
     (u) => u.username.toLowerCase() === username.trim().toLowerCase()
   );
 
-  if (!user || user.password !== password)
+  // Les mots de passe restent dans la base : la verification se fait
+  // sur le serveur, qui répond par un simple ok / erreur.
+  const verification = await verifierIdentifiants(username, password);
+
+  if (!user || !verification)
     return { ok: false, error: "Identifiant ou mot de passe incorrect." };
 
   localStorage.setItem(
@@ -236,6 +241,15 @@ function requireRole(role) {
   const autorise = session && (!role || session.role === role);
 
   if (!autorise) window.location.href = "login.html";
+}
+
+// ---------- Démarrage ----------
+// Les comptes viennent de la base : on les charge avant de laisser
+// la page fonctionner, sinon requireRole() ne verrait personne.
+// Chaque page appelle demarrer() juste apres ses propres scripts.
+async function chargerLaBase() {
+  setUsers(await chargerComptes());
+  await ensureAdmin();
 }
 
 // ---------- Messages des formulaires ----------
@@ -263,7 +277,7 @@ if (registerForm) {
     if (password !== data.get("password2"))
       return showAuthMessage(registerForm, "Les mots de passe ne correspondent pas.", true);
 
-    const result = register(data.get("username"), password);
+    const result = await register(data.get("username"), password);
 
     if (!result.ok) return showAuthMessage(registerForm, result.error, true);
 
@@ -281,7 +295,7 @@ if (accountForm) {
     event.preventDefault();
     const data = new FormData(accountForm);
 
-    const result = createAccount(
+    const result = await createAccount(
       data.get("username"),
       data.get("password"),
       data.get("role")
@@ -296,17 +310,20 @@ if (accountForm) {
 
   // Seul le compte principal peut choisir le rôle admin : on masque
   // l'option pour les autres administrateurs plutôt que de la laisser
-  // échouer à la validation.
-  if (!isPrincipalAdmin()) {
+  // échouer à la validation. Les comptes arrivent de la base, donc
+  // ce test ne peut pas se faire avant le chargement.
+  chargerLaBase().then(() => {
+    if (isPrincipalAdmin()) return;
+
     const roleSelect = document.getElementById("account-role");
     const optionAdmin = roleSelect.querySelector('option[value="admin"]');
     if (optionAdmin) optionAdmin.remove();
 
     const hint = document.getElementById("accounts-hint");
     if (hint) hint.textContent = "Vous pouvez créer des comptes clients.";
-  }
 
-  renderAccounts();
+    renderAccounts();
+  });
 }
 
 // Affiche le tableau des comptes (jamais les mots de passe).
@@ -344,7 +361,7 @@ function renderAccounts() {
       btn.className = "btn-delete";
       btn.textContent = "Supprimer";
 
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         // Confirmation avant une action définitive.
         const ok = confirm(
           `Supprimer le compte « ${user.username} » ?\n` +
@@ -352,7 +369,7 @@ function renderAccounts() {
         );
         if (!ok) return;
 
-        const result = deleteAccount(user.id);
+        const result = await deleteAccount(user.id);
         showAuthMessage(
           document.getElementById("create-account-form"),
           result.ok ? `Compte « ${result.supprime} » supprimé.` : result.error,
@@ -377,7 +394,7 @@ if (loginForm) {
     event.preventDefault();
     const data = new FormData(loginForm);
 
-    const result = login(data.get("username"), data.get("password"));
+    const result = await login(data.get("username"), data.get("password"));
 
     if (!result.ok) return showAuthMessage(loginForm, result.error, true);
 
@@ -446,6 +463,7 @@ function buildNavbar() {
 
 buildNavbar();
 
-// Le compte administrateur existe dès la première visite,
-// sans écraser un compte déjà présent.
-ensureAdmin();
+// Le compte administrateur existe dès la première visite, sans écraser
+// un compte déjà présent. Sur les pages d'authentification il n'y a
+// aucune session : c'est la page d'administration qui s'en charge.
+if (getSession()) chargerLaBase();

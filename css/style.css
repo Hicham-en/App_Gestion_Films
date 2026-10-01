@@ -288,7 +288,6 @@ input:disabled {
   margin-right: 0.5rem;
 }
 
-/* Grille 2 colonnes pour la carte de film (infos à gauche, résumé à droite) */
 .film-card-body {
   display: grid;
   grid-template-columns: 1fr 1.2fr;

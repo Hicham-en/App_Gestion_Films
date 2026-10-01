@@ -1,0 +1,15 @@
+{
+  "name": "app-gestion-films",
+  "version": "1.0.0",
+  "description": "Gestion de films - base de donnees MongoDB partagee",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js",
+    "bd": "node server/voir.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "mongodb": "^6.9.0"
+  }
+}
